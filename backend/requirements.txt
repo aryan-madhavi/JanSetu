@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+google-genai
+python-dotenv
+pandas
+numpy
+scikit-learn
+python-multipart
+twilio
+python-telegram-bot
+pydantic
+sqlalchemy
+google-cloud-texttospeech
+pyjwt
+httpx
+pytest

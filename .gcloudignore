@@ -1,0 +1,15 @@
+.git/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+venv/
+**/venv/
+.pytest_cache/
+**/__pycache__/
+*.sqlite
+sa.json
+.env
+screenshots/
+docs/screens/
+*.png
