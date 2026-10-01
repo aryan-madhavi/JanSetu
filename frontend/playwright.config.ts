@@ -16,7 +16,7 @@ export default defineConfig({
   timeout: 60000,
   use: {
     baseURL: baseURL,
-    trace: "retain-on-failure",
+    trace: "off",
     screenshot: "only-on-failure",
     launchOptions: {
       args: [

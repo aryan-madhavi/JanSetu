@@ -45,7 +45,7 @@ def detect_audio_mime(filename: str) -> str:
     }
     return mapping.get(ext, "audio/webm")
 
-def extract_request_info(text: str = None, audio_path: str = None, image_path: str = None, audio_filename: str = None):
+def extract_request_info(text: str = None, audio_path: str = None, image_path: str = None, audio_filename: str = None, **kwargs):
     client = get_genai_client()
     contents = []
     

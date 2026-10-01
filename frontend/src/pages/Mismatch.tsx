@@ -7,7 +7,7 @@ import {
 import { AlertTriangle, Download, RefreshCw, AlertCircle, Layers } from "lucide-react";
 
 export default function Mismatch() {
-  const { district, t } = useApp();
+  const { district, t, dataSource, pollTick } = useApp();
   const [data, setData] = useState<any[]>([]);
   const [clusters, setClusters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,9 +16,10 @@ export default function Mismatch() {
   const loadData = () => {
     setLoading(true);
     setError(null);
+    const srcParam = dataSource ? `?source=${dataSource}` : "";
     Promise.all([
-      fetchJson<any[]>("/priority/mismatch"),
-      fetchJson<any[]>("/clusters")
+      fetchJson<any[]>(`/priority/mismatch${srcParam}`),
+      fetchJson<any[]>(`/clusters${srcParam}`)
     ])
       .then(([mismatchData, clusterData]) => {
         setData(mismatchData);
@@ -30,7 +31,7 @@ export default function Mismatch() {
 
   useEffect(() => {
     loadData();
-  }, [district]);
+  }, [district, dataSource, pollTick]);
 
   const filteredData = data.filter(d => {
     if (district === "All") return true;
@@ -45,8 +46,10 @@ export default function Mismatch() {
       <div className="flex flex-col sm:flex-row justify-between sm:items-end border-b border-[#D9DEE5] pb-4 gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800 border border-amber-200">
-              Demo data
+            <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+              dataSource === "live" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-blue-100 text-blue-800 border border-blue-200"
+            }`}>
+              {dataSource === "live" ? "Live data" : "Live + Demo data"}
             </span>
             <span className="text-xs font-bold text-[#D32F2F] uppercase tracking-wider flex items-center gap-1">
               <AlertTriangle size={14} /> Fiscal Mismatch Detection

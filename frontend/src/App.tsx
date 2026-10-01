@@ -1,155 +1,224 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import { 
-  Home, Map as MapIcon, List, MessageSquare, Menu, Radio, Smartphone, 
-  AlertTriangle, Bell, User, Wifi, ChevronDown, Flag, LogOut, LogIn,
-  Sparkles, TrendingUp, X, Shield
+  BarChart3, 
+  MapPin, 
+  Layers, 
+  Sliders, 
+  Radio, 
+  Database, 
+  Menu,
+  ChevronDown,
+  Flag,
+  Bell,
+  User,
+  LogOut,
+  LogIn,
+  X,
+  FileText,
+  Lightbulb,
+  TrendingUp,
+  Activity,
+  Wifi,
 } from "lucide-react";
+
 import { AppProvider, useApp, type SupportedLang } from "./context/AppContext";
 
+// Pages
+import Landing from "./pages/Landing";
 import Overview from "./pages/Overview";
 import Feed from "./pages/Feed";
 import Clusters from "./pages/Clusters";
 import AskData from "./pages/AskData";
-import Landing from "./pages/Landing";
+import HotspotMap from "./pages/HotspotMap";
 import Mismatch from "./pages/Mismatch";
 import Channels from "./pages/Channels";
-import HotspotMap from "./pages/HotspotMap";
+import Login from "./pages/Login";
 import Recommendations from "./pages/Recommendations";
 import Impact from "./pages/Impact";
-import Login from "./pages/Login";
 
-const Sidebar = ({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (v: boolean) => void }) => {
+const Sidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (v: boolean) => void }) => {
   const location = useLocation();
-  const { t, user } = useApp();
-  const [searchModule, setSearchModule] = useState("");
+  const { t, user, dataSource } = useApp();
 
-  const allNav = [
-    { name: t("citizen_portal"), path: "/", icon: <Smartphone size={16} />, public: true },
-    { name: t("national_overview"), path: "/overview", icon: <Home size={16} />, policymakerOnly: true },
-    { name: t("live_reports"), path: "/feed", icon: <Radio size={16} />, policymakerOnly: true },
-    { name: t("geospatial_view"), path: "/map", icon: <MapIcon size={16} />, policymakerOnly: true },
-    { name: t("priority_queue"), path: "/priority", icon: <List size={16} />, policymakerOnly: true },
-    { name: t("deficit_analysis"), path: "/mismatch", icon: <AlertTriangle size={16} />, policymakerOnly: true },
-    { name: t("data_query"), path: "/ask", icon: <MessageSquare size={16} />, policymakerOnly: true },
-    { name: t("input_channels"), path: "/channels", icon: <Smartphone size={16} />, public: true },
-    { name: t("recommended_projects"), path: "/recommendations", icon: <Sparkles size={16} />, policymakerOnly: true },
-    { name: t("impact_tracker"), path: "/impact", icon: <TrendingUp size={16} />, policymakerOnly: true },
+
+  const allNavItems = [
+    { name: t("citizen_portal"), path: "/", icon: FileText, roles: ["citizen", "policymaker"] },
+    { name: t("national_overview"), path: "/overview", icon: BarChart3, roles: ["policymaker"] },
+    { name: t("live_reports"), path: "/feed", icon: Radio, roles: ["policymaker"] },
+    { name: t("geospatial_view"), path: "/map", icon: MapPin, roles: ["policymaker"] },
+    { name: t("priority_queue"), path: "/clusters", icon: Sliders, roles: ["policymaker"] },
+    { name: t("deficit_analysis"), path: "/mismatch", icon: Layers, roles: ["policymaker"] },
+    { name: t("data_query"), path: "/ask", icon: Database, roles: ["policymaker"] },
+    { name: t("input_channels"), path: "/channels", icon: Radio, roles: ["citizen", "policymaker"] },
+    { name: t("recommended_projects"), path: "/recommendations", icon: Lightbulb, roles: ["policymaker"] },
+    { name: t("impact_tracker"), path: "/impact", icon: TrendingUp, roles: ["policymaker"] },
   ];
 
-  
-  const visibleNav = allNav.filter(item => {
-    if (user?.role === "citizen" && item.policymakerOnly) return false;
-    if (searchModule.trim()) {
-      return item.name.toLowerCase().includes(searchModule.toLowerCase());
+  const navItems = allNavItems.filter(item => {
+    if (user?.role === "citizen") {
+      return item.roles.includes("citizen");
     }
     return true;
   });
 
   return (
     <>
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-[#D9DEE5] flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 md:static md:w-64 shrink-0`}>
-        <div className="p-4 border-b border-[#D9DEE5] bg-[#F7F5F2]">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-bold text-[#5E6B7A] uppercase tracking-wider">{t("modules_heading")}</h2>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold border border-amber-200">
-              Demo data
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-20 md:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-30
+        w-64 bg-[#F7F5F2] border-r border-[#D9DEE5] flex flex-col justify-between
+        transform transition-transform duration-200 ease-in-out
+        ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}>
+        <div className="p-4 flex-1 overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[11px] font-bold tracking-wider text-[#5E6B7A] uppercase">
+              {t("modules_heading")}
+            </span>
+            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-300">
+              {dataSource === "live" ? "Live Mode" : "Demo data"}
             </span>
           </div>
-          <div className="relative">
+
+          <div className="mb-4">
             <input 
               type="text" 
-              value={searchModule}
-              onChange={e => setSearchModule(e.target.value)}
               placeholder={t("search_modules")} 
-              className="w-full bg-white border border-[#D9DEE5] rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#1565C0]" 
+              className="w-full px-3 py-1.5 bg-white border border-[#D9DEE5] rounded text-xs text-[#162033] focus:outline-none focus:border-[#1565C0]"
             />
           </div>
+
+          <nav className="space-y-0.5">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setIsOpen(false)}
+                  className={`
+                    flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-colors
+                    ${isActive 
+                      ? "bg-[#e8edf2] text-[#0B2545] font-semibold border-r-2 border-[#1565C0]" 
+                      : "text-[#5E6B7A] hover:bg-[#eae8e3] hover:text-[#0B2545]"}
+                  `}
+                >
+                  <Icon size={16} className={isActive ? "text-[#1565C0]" : "text-[#5E6B7A]"} />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-        <nav className="flex-1 overflow-y-auto py-2">
-          {visibleNav.map(item => (
-            <Link 
-              key={item.path} 
-              to={item.path} 
-              onClick={() => setIsOpen(false)}
-              className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
-                location.pathname === item.path 
-                  ? "bg-[#e8edf2] text-[#0B2545] font-semibold border-r-2 border-[#1565C0]" 
-                  : "text-[#5E6B7A] hover:bg-[#F7F5F2] hover:text-[#0B2545]"
-              }`}
-            >
-              {item.icon}
-              <span>{item.name}</span>
-            </Link>
-          ))}
-        </nav>
-      </div>
-      {isOpen && <div className="fixed inset-0 bg-[#0B2545]/50 z-40 md:hidden" onClick={() => setIsOpen(false)} />}
+
+        {user && (
+          <div className="p-3 border-t border-[#D9DEE5] bg-white/50 text-xs">
+            <div className="font-semibold text-[#0B2545] truncate">{user.name}</div>
+            <div className="text-[10px] text-[#5E6B7A] capitalize">{user.role} mode</div>
+          </div>
+        )}
+      </aside>
     </>
   );
 };
 
-const Header = ({ setIsOpen }: { setIsOpen: (v: boolean) => void }) => {
-  const navigate = useNavigate();
+const Header = ({ setIsOpen }: { setIsOpen: (v: boolean | ((v: boolean) => boolean)) => void }) => {
   const { 
     district, 
     setDistrict, 
     districts, 
     language, 
     setLanguage, 
+    dataSource, 
+    setDataSource, 
+    liveCount,
     t, 
     user, 
-    logout,
-    notifications,
-    isNotificationsOpen,
-    setIsNotificationsOpen
+    logout, 
+    notifications, 
+    isNotificationsOpen, 
+    setIsNotificationsOpen 
   } = useApp();
-
-  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  
   const [isDistrictMenuOpen, setIsDistrictMenuOpen] = useState(false);
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const langNames: Record<SupportedLang, string> = {
     en: "English",
-    hi: "हिन्दी",
+    hi: "हिंदी",
     ta: "தமிழ்",
     mr: "मराठी"
   };
 
   return (
-    <header className="bg-[#0B2545] text-white h-14 flex items-center justify-between px-4 shrink-0 shadow-sm z-30 relative">
-      <div className="flex items-center gap-4">
-        <button onClick={() => setIsOpen(true)} className="md:hidden text-white/80 hover:text-white">
+    <header className="h-14 bg-[#0B2545] text-white flex items-center justify-between px-4 z-40 border-b border-[#0B2545] shrink-0">
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={() => setIsOpen((prev: boolean) => !prev)}
+          className="md:hidden text-white/80 hover:text-white"
+        >
           <Menu size={20} />
         </button>
-        <Link to="/" className="flex items-center gap-3 hover:opacity-95 transition-opacity">
-          <div className="w-8 h-8 bg-white rounded flex items-center justify-center text-[#0B2545] font-bold">
-            <Shield size={18} className="text-[#0B2545]" />
+
+        <Link to="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded bg-[#1565C0] flex items-center justify-center font-bold text-base text-white shadow-sm">
+            <Activity size={18} />
           </div>
-          <div className="hidden sm:block leading-tight">
-            <h1 className="text-[15px] font-semibold tracking-wide">{t("platform_title")}</h1>
-            <p className="text-[11px] text-white/70 uppercase tracking-wider">{t("platform_sub")}</p>
+          <div>
+            <div className="font-bold text-sm tracking-tight leading-none text-white">
+              JanSetu Platform
+            </div>
+            <div className="text-[9px] text-[#90CAF9] tracking-wider font-medium">
+              {t("platform_sub")}
+            </div>
           </div>
         </Link>
       </div>
-      
-      <div className="flex items-center gap-3 sm:gap-5 text-sm">
-        {/* District Selector */}
+
+      <div className="flex items-center gap-2 sm:gap-4">
+        {/* Live / Demo Data Source Toggle */}
+        <button
+          onClick={() => setDataSource(dataSource === "all" ? "live" : "all")}
+          title={dataSource === "all" ? "Showing Live + Demo data. Click to switch to Live Only" : "Showing Live Only. Click to switch to Live + Demo"}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold transition-all border ${
+            dataSource === "live"
+              ? "bg-emerald-600 text-white border-emerald-400 shadow-sm"
+              : "bg-white/10 hover:bg-white/20 text-white/90 border-white/20"
+          }`}
+        >
+          <span className={`w-2 h-2 rounded-full ${dataSource === "live" ? "bg-white animate-ping" : "bg-emerald-400"}`}></span>
+          <span>{dataSource === "live" ? t("source_live") : t("source_all")}</span>
+          <span className="text-[10px] opacity-75 font-mono hidden sm:inline">({liveCount} live)</span>
+        </button>
+
+        {/* Global District Selector */}
         <div className="relative">
-          <button
+          <button 
             onClick={() => { setIsDistrictMenuOpen(!isDistrictMenuOpen); setIsLangMenuOpen(false); setIsProfileMenuOpen(false); }}
-            className="flex items-center gap-2 px-2.5 sm:px-3 py-1 bg-white/10 rounded border border-white/20 cursor-pointer hover:bg-white/15 text-xs sm:text-sm font-medium"
+            className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded border border-white/20 transition-colors text-xs"
           >
-            <MapIcon size={14} className="text-[#F59E0B]" />
-            <span>{district === "All" ? t("all_districts") : `${t("district_label")}: ${district}`}</span>
+            <MapPin size={12} className="text-[#90CAF9]" />
+            <span className="font-medium truncate max-w-[100px] sm:max-w-none">
+              {district === "All" ? t("all_districts") : district}
+            </span>
             <ChevronDown size={14} className="text-white/70" />
           </button>
 
           {isDistrictMenuOpen && (
-            <div className="absolute top-full left-0 mt-1 w-48 bg-white text-[#162033] rounded shadow-lg border border-[#D9DEE5] py-1 z-50 max-h-60 overflow-y-auto">
+            <div className="absolute top-full left-0 mt-1 w-44 bg-white text-[#162033] rounded shadow-lg border border-[#D9DEE5] py-1 z-50 max-h-60 overflow-y-auto">
               <button
                 onClick={() => { setDistrict("All"); setIsDistrictMenuOpen(false); }}
-                className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-[#F7F5F2] ${district === "All" ? "text-[#1565C0] font-bold bg-[#e8edf2]" : ""}`}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[#F7F5F2] ${district === "All" ? "text-[#1565C0] font-bold bg-[#e8edf2]" : ""}`}
               >
                 {t("all_districts")}
               </button>
@@ -168,7 +237,7 @@ const Header = ({ setIsOpen }: { setIsOpen: (v: boolean) => void }) => {
         
         {/* Connectivity status */}
         <div className="hidden lg:flex items-center gap-2">
-          <Wifi size={16} className="text-[#2E7D32]" />
+          <Wifi size={14} className="text-[#2E7D32]" />
           <span className="text-xs text-white/80">{t("connected")}</span>
         </div>
         

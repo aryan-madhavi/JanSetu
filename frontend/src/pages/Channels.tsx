@@ -44,7 +44,7 @@ export default function Channels() {
           body: formData
         });
         const data = await res.json();
-        setSimResult({ channel: simChannel, ticket_id: data.ticket_id, response: data.reply_text, status: "Verified & Seeded in SQLite DB" });
+        setSimResult({ channel: simChannel, ticket_id: data.ticket_id, response: data.reply_text, status: "Verified & Stored in Persistent Cloud Firestore" });
       }
     } catch (err: any) {
       setError(err.message || "Simulation failed.");

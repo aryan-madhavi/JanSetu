@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 
 export default function Feed() {
-  const { district: globalDistrict, t } = useApp();
+  const { district: globalDistrict, t, dataSource, pollTick } = useApp();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +38,9 @@ export default function Feed() {
     if (search.trim()) {
       params.append("search", search.trim());
     }
+    if (dataSource) {
+      params.append("source", dataSource);
+    }
     params.append("limit", "100");
 
     fetchJson<any[]>(`/requests?${params.toString()}`)
@@ -48,7 +51,7 @@ export default function Feed() {
 
   useEffect(() => {
     loadData();
-  }, [globalDistrict, selectedSector, minSeverity]);
+  }, [globalDistrict, selectedSector, minSeverity, dataSource, pollTick]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

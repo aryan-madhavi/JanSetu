@@ -23,12 +23,10 @@ COPY data/ ./data/
 COPY backend/ ./backend/
 COPY --from=frontend-builder /app/dist ./frontend_dist/
 
-ENV DB_PATH=/app/backend/jansetu.sqlite
+ENV GCP_PROJECT_ID=jansetu-510215
 ENV DATA_DIR=/app/data
 ENV PORT=8080
 
 WORKDIR /app/backend
-# Build & Seed SQLite database DURING docker build
-RUN python seed.py
 
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT"]

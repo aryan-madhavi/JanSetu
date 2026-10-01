@@ -4,7 +4,7 @@ import { useApp } from "../context/AppContext";
 import { Search, Database, Download, Terminal, RefreshCw, AlertCircle, Sparkles } from "lucide-react";
 
 export default function AskData() {
-  const { t } = useApp();
+  const { t, dataSource } = useApp();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function AskData() {
       }>("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: queryText })
+        body: JSON.stringify({ message: queryText, source: dataSource })
       });
 
       setAnswer(res.answer);

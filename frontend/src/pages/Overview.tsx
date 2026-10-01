@@ -1,112 +1,150 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { fetchJson, exportCsv, downloadFile } from "../lib/api";
-import { useApp } from "../context/AppContext";
 import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Legend
 } from "recharts";
 import { 
-  TrendingUp, AlertOctagon, CheckCircle2, Clock, Download, FileText, RefreshCw, AlertCircle
+  TrendingUp, 
+  AlertOctagon, 
+  CheckCircle2, 
+  Clock, 
+  Download, 
+  FileText,
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
+import { useApp } from "../context/AppContext";
+import { fetchJson, downloadFile, exportCsv } from "../lib/api";
+import { useNavigate } from "react-router-dom";
 
 export default function Overview() {
+  const { district, t, dataSource, pollTick } = useApp();
   const navigate = useNavigate();
-  const { district, t } = useApp();
+
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSector, setSelectedSector] = useState<string>("All Sectors");
+  const [selectedSector, setSelectedSector] = useState("All Sectors");
+  const [exporting, setExporting] = useState(false);
 
-  const loadStats = () => {
-    setLoading(true);
-    setError(null);
-    const param = district && district !== "All" ? `?district=${encodeURIComponent(district)}` : "";
-    fetchJson<any>(`/dashboard/stats${param}`)
-      .then(data => setStats(data))
-      .catch(err => setError(err.message || "Failed to load dashboard statistics"))
-      .finally(() => setLoading(false));
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const url = `/dashboard/stats?source=${dataSource}${district !== "All" ? `&district=${encodeURIComponent(district)}` : ""}`;
+      const data = await fetchJson<any>(url);
+      setStats(data);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load dashboard metrics");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadStats();
-  }, [district]);
+    loadData();
+  }, [district, dataSource, pollTick]);
 
   const handleExportCsv = () => {
-    if (!stats || !stats.recent_queue) return;
-    const headers = ["District", "Sector", "Severity", "ETA", "Priority Score", "Target Scheme"];
+    if (!stats?.recent_queue || stats.recent_queue.length === 0) return;
+    const headers = ["Ticket ID", "Timestamp", "District", "Sector", "Severity", "English Summary", "Source"];
     const rows = stats.recent_queue.map((r: any) => [
-      r.d, r.s, r.sev, r.eta, r.score, r.scheme
+      r.id || r.ticket_id || "",
+      r.timestamp || "",
+      r.district || "",
+      r.sector || "",
+      r.severity || "",
+      r.english_summary || "",
+      r.source || ""
     ]);
-    exportCsv(headers, rows, `JanSetu_National_Priority_Queue_${district}.csv`);
+    exportCsv(headers, rows, `JanSetu_Overview_${district}_${dataSource}.csv`);
   };
 
-  const handleGenerateReport = () => {
-    downloadFile("/brief/export", `JanSetu_Infrastructure_Report_${district}.md`);
+  const handleGenerateReport = async () => {
+    try {
+      setExporting(true);
+      const url = `/brief/export?source=${dataSource}${district !== "All" ? `&district=${encodeURIComponent(district)}` : ""}`;
+      await downloadFile(url, `JanSetu_Brief_${district}.md`);
+    } catch (err: any) {
+      alert("Failed to export brief: " + err.message);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const filteredQueue = (stats?.recent_queue || []).filter((item: any) => {
     if (selectedSector === "All Sectors") return true;
-    return item.s.toLowerCase() === selectedSector.toLowerCase();
+    return item.s?.toLowerCase() === selectedSector.toLowerCase();
   });
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
-      {/* Top Banner / Actions */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white border border-[#D9DEE5] rounded p-4 shadow-sm">
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Top Breadcrumb & Action bar */}
+      <div className="bg-white border border-[#D9DEE5] rounded p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800 border border-amber-200">
-              Demo data
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800 border border-amber-300">
+              {dataSource === "live" ? "Live Mode" : "Demo data"}
             </span>
-            <span className="text-xs font-bold text-[#5E6B7A] uppercase tracking-wider">
-              {district === "All" ? t("all_districts") : `${t("district_label")}: ${district}`}
+            <span className="text-xs text-[#5E6B7A] uppercase font-bold tracking-wider">
+              {district === "All" ? t("all_districts") : district}
             </span>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-[#0B2545] font-sans mt-0.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#0B2545]">
             {t("national_overview")}
           </h1>
-          <p className="text-xs text-[#5E6B7A]">
+          <p className="text-xs text-[#5E6B7A] mt-0.5">
             Real-time algorithmic priority ranking & citizen infrastructure demand stream.
           </p>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex items-center gap-3">
           <button 
             onClick={handleExportCsv}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#D9DEE5] text-sm font-medium rounded text-[#0B2545] hover:bg-[#F7F5F2] transition-colors"
+            disabled={!stats}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#D9DEE5] hover:bg-[#F7F5F2] text-xs font-medium text-[#0B2545] rounded transition-colors disabled:opacity-50 cursor-pointer"
           >
-            <Download size={14} />
-            {t("export_csv")}
+            <Download size={14} className="text-[#5E6B7A]" />
+            <span>{t("export_csv")}</span>
           </button>
+          
           <button 
             onClick={handleGenerateReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0B2545] text-white text-sm font-medium rounded hover:bg-[#081d36] transition-colors"
+            disabled={exporting}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0B2545] hover:bg-[#1565C0] text-xs font-semibold text-white rounded transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
           >
             <FileText size={14} />
-            {t("generate_report")}
+            <span>{exporting ? "Generating..." : t("generate_report")}</span>
           </button>
         </div>
       </div>
 
-      {loading && (
-        <div className="p-12 text-center text-[#5E6B7A] bg-white border border-[#D9DEE5] rounded">
+      {loading && !stats ? (
+        <div className="bg-white border border-[#D9DEE5] rounded p-12 text-center">
           <RefreshCw size={32} className="mx-auto mb-2 animate-spin text-[#1565C0]" />
-          <p className="text-sm">{t("loading")}</p>
+          <p className="text-sm text-[#5E6B7A]">{t("loading")}</p>
         </div>
-      )}
-
-      {error && (
-        <div className="p-6 bg-red-50 border border-red-200 rounded text-center">
-          <AlertCircle size={32} className="mx-auto text-red-600 mb-2" />
-          <p className="text-sm text-red-700 mb-3">{error}</p>
-          <button onClick={loadStats} className="px-4 py-1.5 bg-[#0B2545] text-white text-xs font-medium rounded">
+      ) : error ? (
+        <div className="bg-white border border-red-200 rounded p-8 text-center">
+          <AlertTriangle size={32} className="mx-auto mb-2 text-[#D32F2F]" />
+          <p className="text-sm font-semibold text-[#D32F2F] mb-1">Failed to load data</p>
+          <p className="text-xs text-[#5E6B7A] mb-4">{error}</p>
+          <button
+            onClick={loadData}
+            className="px-4 py-1.5 bg-[#0B2545] text-white text-xs font-medium rounded hover:bg-[#1565C0]"
+          >
             {t("retry")}
           </button>
         </div>
-      )}
-
-      {!loading && stats && (
+      ) : (
         <>
-          {/* KPI Cards */}
+          {/* Key Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white border border-[#D9DEE5] rounded p-4 shadow-sm flex flex-col justify-between">
               <div>
@@ -118,8 +156,11 @@ export default function Overview() {
                   {stats.total_requests?.toLocaleString()}
                 </div>
               </div>
-              <div className="mt-4 text-[11px] text-[#2E7D32] flex items-center gap-1 font-medium">
-                <span>Multi-channel verified citizen inputs</span>
+              <div className="mt-4 text-[11px] text-[#2E7D32] flex items-center justify-between font-medium">
+                <span>{stats.live_requests ?? 0} live, {stats.demo_requests ?? 2000} demo</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {dataSource === "live" ? "Live Mode" : "All Data"}
+                </span>
               </div>
             </div>
 

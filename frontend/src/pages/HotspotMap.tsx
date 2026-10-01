@@ -17,7 +17,7 @@ function MapPanController({ coords }: { coords: [number, number] | null }) {
 }
 
 export default function HotspotMap() {
-  const { setDistrict, t } = useApp();
+  const { setDistrict, t, dataSource, pollTick } = useApp();
   const [hotspots, setHotspots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedHotspot, setSelectedHotspot] = useState<any | null>(null);
@@ -38,8 +38,15 @@ export default function HotspotMap() {
   // Load hotspots from API
   const loadHotspots = () => {
     setLoading(true);
-    const param = selectedSector !== "All Sectors" ? `?sector=${encodeURIComponent(selectedSector.toLowerCase())}` : "";
-    fetchJson<any[]>(`/hotspots${param}`)
+    const params = new URLSearchParams();
+    if (selectedSector !== "All Sectors") {
+      params.append("sector", selectedSector.toLowerCase());
+    }
+    if (dataSource) {
+      params.append("source", dataSource);
+    }
+    const query = params.toString() ? `?${params.toString()}` : "";
+    fetchJson<any[]>(`/hotspots${query}`)
       .then(data => {
         setHotspots(data);
         if (data.length > 0 && !selectedHotspot) {
@@ -52,7 +59,7 @@ export default function HotspotMap() {
 
   useEffect(() => {
     loadHotspots();
-  }, [selectedSector]);
+  }, [selectedSector, dataSource, pollTick]);
 
   // Try loading Google Maps JS if API key is provided
   useEffect(() => {

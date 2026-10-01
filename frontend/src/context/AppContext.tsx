@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { fetchJson } from "../lib/api";
 
+export type SupportedLang = "en" | "hi" | "ta" | "mr";
+export type DataSourceMode = "all" | "live";
+
 export interface User {
-  id: number;
+  id?: string;
   name: string;
+  role: "policymaker" | "citizen";
   email?: string;
   phone?: string;
-  role: "policymaker" | "citizen";
+  district?: string;
 }
 
 export interface NotificationItem {
@@ -18,12 +22,10 @@ export interface NotificationItem {
   time: string;
 }
 
-export type SupportedLang = "en" | "hi" | "ta" | "mr";
-
-const translations: Record<SupportedLang, Record<string, string>> = {
+export const translations: Record<SupportedLang, Record<string, string>> = {
   en: {
     platform_title: "JanSetu Platform",
-    platform_sub: "Digital Infrastructure Command",
+    platform_sub: "DIGITAL INFRASTRUCTURE COMMAND",
     citizen_portal: "Citizen Portal",
     national_overview: "National Overview",
     live_reports: "Live Reports",
@@ -37,30 +39,32 @@ const translations: Record<SupportedLang, Record<string, string>> = {
     all_districts: "All Districts",
     district_label: "District",
     connected: "Connected",
-    modules_heading: "Modules",
+    modules_heading: "MODULES",
     search_modules: "Search modules...",
-    login: "Login",
-    logout: "Logout",
+    login: "Log in",
+    logout: "Log out",
     notifications: "Notifications",
-    critical_alerts: "Critical P1 Grievances",
+    critical_alerts: "Critical Alerts (P1)",
     no_notifications: "No new critical alerts.",
     view_details: "View Details",
     retry: "Retry",
     loading: "Loading data...",
     export_csv: "Export CSV",
     generate_report: "Generate Report",
-    search_placeholder: "Search ID or keyword...",
-    filter: "Filter"
+    search_placeholder: "Search ID, keyword...",
+    filter: "Filter",
+    source_all: "Live + Demo",
+    source_live: "Live Only"
   },
   hi: {
     platform_title: "जनसेतु मंच",
     platform_sub: "डिजिटल अवसंरचना कमान",
     citizen_portal: "नागरिक पोर्टल",
-    national_overview: "राष्ट्रीय समीक्षा",
+    national_overview: "राष्ट्रीय अवलोकन",
     live_reports: "लाइव रिपोर्ट",
     geospatial_view: "भू-स्थानिक दृश्य",
     priority_queue: "प्राथमिकता कतार",
-    deficit_analysis: "घाटा विश्लेषण",
+    deficit_analysis: "कमी विश्लेषण",
     data_query: "डेटा क्वेरी",
     input_channels: "इनपुट चैनल",
     recommended_projects: "अनुशंसित परियोजनाएं",
@@ -81,7 +85,9 @@ const translations: Record<SupportedLang, Record<string, string>> = {
     export_csv: "सीएसवी निर्यात",
     generate_report: "रिपोर्ट बनाएं",
     search_placeholder: "आईडी या कीवर्ड खोजें...",
-    filter: "फ़िल्टर"
+    filter: "फ़िल्टर",
+    source_all: "लाइव + डेमो",
+    source_live: "केवल लाइव"
   },
   ta: {
     platform_title: "ஜன்சேது தளம்",
@@ -112,7 +118,9 @@ const translations: Record<SupportedLang, Record<string, string>> = {
     export_csv: "CSV ஏற்றுமதி",
     generate_report: "அறிக்கை உருவாக்கவும்",
     search_placeholder: "தேடு...",
-    filter: "வடிகட்டு"
+    filter: "வடிகட்டு",
+    source_all: "நேரலை + டெமோ",
+    source_live: "நேரலை மட்டும்"
   },
   mr: {
     platform_title: "जनसेतू व्यासपीठ",
@@ -143,7 +151,9 @@ const translations: Record<SupportedLang, Record<string, string>> = {
     export_csv: "CSV निर्यात",
     generate_report: "अहवाल तयार करा",
     search_placeholder: "शोधा...",
-    filter: "फिल्टर"
+    filter: "फिल्टर",
+    source_all: "थेट + डेमो",
+    source_live: "केवळ थेट"
   }
 };
 
@@ -153,6 +163,11 @@ interface AppContextType {
   districts: string[];
   language: SupportedLang;
   setLanguage: (l: SupportedLang) => void;
+  dataSource: DataSourceMode;
+  setDataSource: (mode: DataSourceMode) => void;
+  liveCount: number;
+  demoCount: number;
+  pollTick: number;
   t: (key: string) => string;
   user: User | null;
   setUser: (u: User | null) => void;
@@ -169,6 +184,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [district, setDistrict] = useState<string>("All");
   const [districts, setDistricts] = useState<string[]>([]);
   const [language, setLanguage] = useState<SupportedLang>("en");
+  const [dataSource, setDataSource] = useState<DataSourceMode>("all");
+  const [liveCount, setLiveCount] = useState<number>(0);
+  const [demoCount, setDemoCount] = useState<number>(2000);
+  const [pollTick, setPollTick] = useState<number>(0);
   const [user, setUser] = useState<User | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -187,9 +206,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res && res.user) setUser(res.user);
       })
       .catch(() => {
-        // Not authenticated
         setUser(null);
       });
+  }, []);
+
+  // 5s Polling loop to maintain live sync without manual page refresh
+  useEffect(() => {
+    const fetchGlobalCounts = () => {
+      fetchJson<any>("/dashboard/stats?source=all")
+        .then(stats => {
+          if (stats) {
+            setLiveCount(stats.live_requests || 0);
+            setDemoCount(stats.demo_requests || 2000);
+            setPollTick(prev => prev + 1);
+          }
+        })
+        .catch(err => console.debug("Poll stats tick error:", err));
+    };
+
+    fetchGlobalCounts();
+    const timer = setInterval(fetchGlobalCounts, 5000);
+    return () => clearInterval(timer);
   }, []);
 
   const refreshNotifications = async () => {
@@ -211,7 +248,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     refreshNotifications();
-  }, []);
+  }, [pollTick]);
 
   const logout = async () => {
     try {
@@ -234,6 +271,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         districts,
         language,
         setLanguage,
+        dataSource,
+        setDataSource,
+        liveCount,
+        demoCount,
+        pollTick,
         t,
         user,
         setUser,

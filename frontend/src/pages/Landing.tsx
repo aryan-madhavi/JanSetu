@@ -7,7 +7,7 @@ import { API_BASE_URL, fetchJson } from "../lib/api";
 import { useApp } from "../context/AppContext";
 
 export default function Landing() {
-  const { district, language } = useApp();
+  const { district, language, dataSource, pollTick } = useApp();
 
   const [recordingState, setRecordingState] = useState<"idle" | "listening" | "processing" | "uploaded">("idle");
   const [duration, setDuration] = useState(0);
@@ -38,8 +38,15 @@ export default function Landing() {
   // Load Recent Reports in selected District
   const loadRecentReports = () => {
     setLoadingReports(true);
-    const param = district && district !== "All" ? `?district=${encodeURIComponent(district)}&limit=5` : "?limit=5";
-    fetchJson<any[]>(`/requests${param}`)
+    const params = new URLSearchParams();
+    if (district && district !== "All") {
+      params.append("district", district);
+    }
+    if (dataSource) {
+      params.append("source", dataSource);
+    }
+    params.append("limit", "5");
+    fetchJson<any[]>(`/requests?${params.toString()}`)
       .then(data => setRecentReports(data))
       .catch(console.error)
       .finally(() => setLoadingReports(false));
@@ -47,7 +54,7 @@ export default function Landing() {
 
   useEffect(() => {
     loadRecentReports();
-  }, [district]);
+  }, [district, dataSource, pollTick]);
 
   // GPS Fetch
   const handleFetchLocation = () => {

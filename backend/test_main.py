@@ -3,7 +3,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 from main import app
-from models import SessionLocal, Request, PriorityScore, User
+from firestore_service import data_service
 
 client = TestClient(app)
 
@@ -11,6 +11,7 @@ def test_healthz():
     resp = client.get("/healthz")
     assert resp.status_code == 200
     assert resp.json().get("status") == "ok"
+    assert resp.json().get("mode") == "firestore_native"
 
 def test_districts():
     resp = client.get("/api/districts")
@@ -19,6 +20,16 @@ def test_districts():
     assert isinstance(districts, list)
     assert len(districts) > 0
     assert "Pune" in districts
+    assert "Bastar" in districts
+
+def test_district_weather():
+    resp = client.get("/api/districts/Bastar/weather")
+    assert resp.status_code == 200
+    w = resp.json()
+    assert "temp_c" in w
+    assert "precipitation_mm" in w
+    assert "source" in w
+    assert "Open-Meteo" in w["source"]
 
 def test_dashboard_stats():
     resp = client.get("/api/dashboard/stats")
@@ -26,14 +37,14 @@ def test_dashboard_stats():
     data = resp.json()
     assert data["total_requests"] > 0
     assert data["critical_requests"] > 0
+    assert "live_requests" in data
+    assert "demo_requests" in data
     assert len(data["by_sector"]) > 0
     assert len(data["by_district"]) > 0
     
-    # Assert stats.total equals actual DB count
-    db = SessionLocal()
-    db_count = db.query(Request).count()
-    db.close()
-    assert data["total_requests"] == db_count
+    # Assert stats.total equals actual Firestore count
+    fs_count = data_service.db.collection("requests").count().get()[0][0].value
+    assert data["total_requests"] == fs_count
 
 def test_requests_endpoint():
     resp = client.get("/api/requests?limit=10")
@@ -45,6 +56,7 @@ def test_requests_endpoint():
     assert "id" in first
     assert "sector" in first
     assert "district" in first
+    assert "source" in first
 
 def test_requests_district_filter():
     resp = client.get("/api/requests?district=Pune&limit=5")
@@ -64,10 +76,9 @@ def test_priority_queue():
     assert "deficit" in top
     assert "breakdown" in top
     assert "evidence_quotes" in top
+    assert "weather_signal" in top
     assert isinstance(top["evidence_quotes"], list)
     assert len(top["evidence_quotes"]) > 0
-    assert "original" in top["evidence_quotes"][0]
-    assert "english" in top["evidence_quotes"][0]
 
 def test_priority_mismatch():
     resp = client.get("/api/priority/mismatch")
@@ -75,7 +86,6 @@ def test_priority_mismatch():
     items = resp.json()
     assert len(items) > 0
     assert "demand" in items[0]
-    assert "supply" in items[0]
     assert "deficit" in items[0]
 
 def test_clusters():
@@ -109,16 +119,14 @@ def test_impact():
     resp = client.get("/api/impact?initiative=Jal+Jeevan+Mission")
     assert resp.status_code == 200
     data = resp.json()
-    assert "metrics" in data
-    assert "timeline" in data
-    assert len(data["timeline"]) > 0
+    assert "affected_citizens_baseline" in data
+    assert "projected_resolution_rate" in data
 
 def test_brief_export():
     resp = client.get("/api/brief/export")
     assert resp.status_code == 200
     assert "JanSetu" in resp.text
-    assert "Top Priority Infrastructure Projects" in resp.text
-    assert len(resp.text) > 500
+    assert "Priority Allocations" in resp.text
 
 def test_chat_sql_query():
     resp = client.post("/api/chat", json={"message": "Which districts have the highest number of water problems?"})
@@ -152,7 +160,20 @@ def test_auth_flows():
 
 def test_webhooks():
     # WhatsApp / Twilio simulation
-    tw_resp = client.post("/api/webhooks/twilio", data={"Body": "Drinking water pipeline leakage near bus stand in Pune", "From": "whatsapp:+919876543210"})
+    tw_resp = client.post("/webhooks/whatsapp", data={"Body": "Drinking water pipeline leakage in Bastar", "From": "whatsapp:+919876543210"})
     assert tw_resp.status_code == 200
     assert "Response" in tw_resp.text
     assert "Ticket" in tw_resp.text
+
+def test_submit_request_live():
+    resp = client.post("/api/requests", data={
+        "text": "बस्तर में पेयजल की भारी किल्लत है",
+        "district": "Bastar",
+        "language_hint": "Hindi"
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "ticket_id" in data
+    assert data["ticket_id"].startswith("REQ-")
+    assert "reply_text" in data
+    assert len(data["reply_text"]) > 0

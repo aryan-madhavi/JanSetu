@@ -4,14 +4,14 @@ import { Activity, Download, ArrowUpRight, TrendingUp, CheckCircle, RefreshCw } 
 import { useApp } from "../context/AppContext";
 
 export default function Impact() {
-  const { t } = useApp();
+  const { t, dataSource, pollTick } = useApp();
   const [data, setData] = useState<any>(null);
   const [initiative, setInitiative] = useState("Jal Jeevan Mission");
   const [loading, setLoading] = useState(true);
 
   const loadData = (init: string) => {
     setLoading(true);
-    fetchJson<any>(`/impact?initiative=${encodeURIComponent(init)}`)
+    fetchJson<any>(`/impact?initiative=${encodeURIComponent(init)}${dataSource ? `&source=${dataSource}` : ""}`)
       .then(res => setData(res))
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -19,15 +19,17 @@ export default function Impact() {
 
   useEffect(() => {
     loadData(initiative);
-  }, [initiative]);
+  }, [initiative, dataSource, pollTick]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <div className="flex flex-col sm:flex-row justify-between sm:items-end mb-6 border-b border-[#D9DEE5] pb-4 gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800 border border-amber-200">
-              Demo data
+            <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+              dataSource === "live" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-blue-100 text-blue-800 border border-blue-200"
+            }`}>
+              {dataSource === "live" ? "Live data" : "Live + Demo data"}
             </span>
             <span className="text-xs font-bold text-[#2E7D32] uppercase tracking-wider flex items-center gap-1">
               <TrendingUp size={14} /> Outcome Verification Engine

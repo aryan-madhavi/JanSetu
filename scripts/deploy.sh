@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== Deploying JanSetu to Google Cloud Run ==="
+echo "=== Deploying JanSetu to Google Cloud Run (Persistent Firestore Mode) ==="
 
 # Load .env safely
 if [ -f .env ]; then
@@ -22,6 +22,14 @@ echo "Region: $REGION"
 echo "Image: $IMAGE"
 echo "Maps key available: $(if [ -n "$MAPS_KEY" ]; then echo "Yes"; else echo "No"; fi)"
 
+# Ensure Service Account has datastore.user role for Firestore Native
+SERVICE_ACCOUNT="538154252811-compute@developer.gserviceaccount.com"
+echo "Ensuring IAM roles/datastore.user on $SERVICE_ACCOUNT..."
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${SERVICE_ACCOUNT}" \
+  --role="roles/datastore.user" \
+  --condition=None >/dev/null 2>&1 || true
+
 # Build container via Cloud Build passing build arg
 echo "Submitting build to Cloud Build..."
 gcloud builds submit \
@@ -39,7 +47,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --allow-unauthenticated \
   --min-instances=1 \
   --memory=1Gi \
-  --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},TELEGRAM_BOT_KEY=${TELEGRAM_BOT_KEY},TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID},TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN},TWILIO_WHATSAPP_FROM=${TWILIO_WHATSAPP_FROM},VERTEX_LOCATION=asia-south1"
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCP_PROJECT_ID=${PROJECT_ID},TELEGRAM_BOT_KEY=${TELEGRAM_BOT_KEY},TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID},TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN},TWILIO_WHATSAPP_FROM=${TWILIO_WHATSAPP_FROM},VERTEX_LOCATION=asia-south1"
 
 echo "=== Deployment Completed Successfully! ==="
 URL=$(gcloud run services describe "${SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
